@@ -66,7 +66,7 @@ def is_png(path: Path) -> bool:
         return False
 
 
-def describe_runtime_error(exc: Exception) -> str | None:
+def get_error_hint(exc: Exception) -> str | None:
     message = str(exc).lower()
     if not message:
         return None
@@ -81,10 +81,10 @@ def describe_runtime_error(exc: Exception) -> str | None:
         )
     if "x connection failed" in message or "no display name" in message:
         return (
-            "Screen capture failed because no GUI display is available. "
-            "Run this script in a desktop session."
+            "Screen capture failed because no GUI display is available (X connection "
+            "failed). Run this script in a desktop session."
         )
-    if "accessibility" in message or "not trusted" in message or "not authorized" in message:
+    if "accessibility" in message or "not trusted" in message or "assistive" in message:
         return (
             "Mouse/keyboard control failed. Grant Accessibility permission to your "
             "terminal/Python app in System Settings → Privacy & Security."
@@ -134,9 +134,9 @@ def locate_target(
                 "Install with: python3 -m pip install opencv-python"
             )
             sys.exit(1)
-        hint = describe_runtime_error(exc)
+        hint = get_error_hint(exc)
         if hint:
-            print(hint)
+            print(hint, file=sys.stderr)
             sys.exit(1)
         raise
 
@@ -195,16 +195,19 @@ def main() -> int:
         running_event.clear()
     except pyautogui.FailSafeException:
         running_event.clear()
-        print("PyAutoGUI failsafe triggered. Move the mouse away from the corner.")
+        print(
+            "PyAutoGUI failsafe triggered (mouse in screen corner). Move the mouse "
+            "away or disable with pyautogui.FAILSAFE = False.",
+            file=sys.stderr,
+        )
         return 1
     except Exception as exc:
         running_event.clear()
-        hint = describe_runtime_error(exc)
+        hint = get_error_hint(exc)
         if hint:
-            print(hint)
-        else:
-            print(f"Unexpected error: {exc}")
-        return 1
+            print(hint, file=sys.stderr)
+            return 1
+        raise
     finally:
         listener.stop()
 
