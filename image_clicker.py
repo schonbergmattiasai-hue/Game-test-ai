@@ -8,7 +8,9 @@ import time
 import urllib.request
 from pathlib import Path
 
-IMAGE_URL = "https://github.com/user-attachments/assets/1f1d29f8-deb0-488c-9d17-2446d4c40e17"
+DEFAULT_TARGET_IMAGE_URL = (
+    "https://github.com/user-attachments/assets/1f1d29f8-deb0-488c-9d17-2446d4c40e17"
+)
 DEFAULT_IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "target.png"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -71,7 +73,7 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             print(f"Downloading target image to {path}...")
-            urllib.request.urlretrieve(IMAGE_URL, path)
+            urllib.request.urlretrieve(DEFAULT_TARGET_IMAGE_URL, path)
             if not is_png(path):
                 path.unlink(missing_ok=True)
                 print("Downloaded file is not a PNG image. Please download manually.")
@@ -82,17 +84,17 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
 
     print(
         "Target image not found. Download it from:\n"
-        f"{IMAGE_URL}\n"
+        f"{DEFAULT_TARGET_IMAGE_URL}\n"
         "and save it to the --image path, or pass --image to a local file."
     )
     sys.exit(1)
 
 
 def locate_target(
-    pyautogui_module, image_path: Path, confidence: float
+    pyautogui, image_path: Path, confidence: float
 ) -> tuple[int, int, int, int] | None:
     try:
-        return pyautogui_module.locateOnScreen(
+        return pyautogui.locateOnScreen(
             str(image_path),
             confidence=confidence,
             grayscale=True,
