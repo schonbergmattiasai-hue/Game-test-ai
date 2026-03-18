@@ -47,7 +47,7 @@ def parse_args() -> argparse.Namespace:
         "--toggle-key",
         type=str,
         default="l",
-        help="Key that toggles clicking on/off (default: L).",
+        help="Key that toggles clicking on/off (default: l, case-insensitive).",
     )
     parser.add_argument(
         "--no-download",
