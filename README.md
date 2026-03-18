@@ -6,7 +6,7 @@ This project provides a small Python helper that watches your screen for the tar
 
 ### Requirements
 
-- macOS (tested on Apple Silicon / M2)
+- macOS
 - Python 3.10+
 
 Install dependencies:
