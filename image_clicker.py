@@ -10,6 +10,7 @@ from pathlib import Path
 
 IMAGE_URL = "https://github.com/user-attachments/assets/1f1d29f8-deb0-488c-9d17-2446d4c40e17"
 DEFAULT_IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "target.png"
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def parse_args() -> argparse.Namespace:
@@ -54,6 +55,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def is_png(path: Path) -> bool:
+    try:
+        with path.open("rb") as image_file:
+            return image_file.read(len(PNG_SIGNATURE)) == PNG_SIGNATURE
+    except OSError:
+        return False
+
+
 def ensure_image(path: Path, allow_download: bool) -> Path:
     if path.exists():
         return path
@@ -63,6 +72,10 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
             path.parent.mkdir(parents=True, exist_ok=True)
             print(f"Downloading target image to {path}...")
             urllib.request.urlretrieve(IMAGE_URL, path)
+            if not is_png(path):
+                path.unlink(missing_ok=True)
+                print("Downloaded file is not a PNG image. Please download manually.")
+                sys.exit(1)
             return path
         except Exception as exc:
             print(f"Failed to download image: {exc}")
@@ -112,7 +125,7 @@ def main() -> int:
     toggle_key = args.toggle_key.lower()
     toggle_key_label = toggle_key.upper()
 
-    def handle_key_press(key):
+    def on_key_press(key):
         if key == keyboard.Key.esc:
             running_event.clear()
             return False
@@ -125,7 +138,7 @@ def main() -> int:
                     enabled_event.set()
                     print("Clicking enabled.")
 
-    listener = keyboard.Listener(on_press=handle_key_press)
+    listener = keyboard.Listener(on_press=on_key_press)
     listener.start()
 
     print(
