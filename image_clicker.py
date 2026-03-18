@@ -66,6 +66,32 @@ def is_png(path: Path) -> bool:
         return False
 
 
+def describe_runtime_error(exc: Exception) -> str | None:
+    message = str(exc).lower()
+    if not message:
+        return None
+    if (
+        "screen grab failed" in message
+        or "screen capture" in message
+        or "screencapture" in message
+    ):
+        return (
+            "Screen capture failed. Grant Screen Recording permission to your "
+            "terminal/Python app in System Settings → Privacy & Security."
+        )
+    if "x connection failed" in message or "no display name" in message:
+        return (
+            "Screen capture failed because no GUI display is available. "
+            "Run this script in a desktop session."
+        )
+    if "accessibility" in message or "not trusted" in message or "not authorized" in message:
+        return (
+            "Mouse/keyboard control failed. Grant Accessibility permission to your "
+            "terminal/Python app in System Settings → Privacy & Security."
+        )
+    return None
+
+
 def ensure_image(path: Path, allow_download: bool) -> Path:
     if path.exists():
         return path
@@ -107,6 +133,10 @@ def locate_target(
                 "OpenCV is required for confidence matching. "
                 "Install with: python3 -m pip install opencv-python"
             )
+            sys.exit(1)
+        hint = describe_runtime_error(exc)
+        if hint:
+            print(hint)
             sys.exit(1)
         raise
 
@@ -163,6 +193,18 @@ def main() -> int:
                 time.sleep(0.1)
     except KeyboardInterrupt:
         running_event.clear()
+    except pyautogui.FailSafeException:
+        running_event.clear()
+        print("PyAutoGUI failsafe triggered. Move the mouse away from the corner.")
+        return 1
+    except Exception as exc:
+        running_event.clear()
+        hint = describe_runtime_error(exc)
+        if hint:
+            print(hint)
+        else:
+            print(f"Unexpected error: {exc}")
+        return 1
     finally:
         listener.stop()
 
