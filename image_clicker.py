@@ -128,7 +128,7 @@ def main() -> int:
     toggle_key = args.toggle_key.lower()
     toggle_key_label = toggle_key.upper()
 
-    def on_press(key):
+    def on_press(key: keyboard.Key | keyboard.KeyCode | None) -> bool | None:
         if key == keyboard.Key.esc:
             running_event.clear()
             return False
