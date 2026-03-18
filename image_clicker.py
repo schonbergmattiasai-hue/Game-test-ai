@@ -110,9 +110,9 @@ def main() -> int:
     running_event.set()
 
     toggle_key = args.toggle_key.lower()
-    toggle_key_display = toggle_key.upper()
+    toggle_key_label = toggle_key.upper()
 
-    def on_press(key):
+    def handle_key_press(key):
         if key == keyboard.Key.esc:
             running_event.clear()
             return False
@@ -120,16 +120,17 @@ def main() -> int:
             if key.char.lower() == toggle_key:
                 if enabled_event.is_set():
                     enabled_event.clear()
-                    print(f"Clicking paused. Press {toggle_key_display} to resume.")
+                    print(f"Clicking paused. Press {toggle_key_label} to resume.")
                 else:
                     enabled_event.set()
                     print("Clicking enabled.")
-    listener = keyboard.Listener(on_press=on_press)
+
+    listener = keyboard.Listener(on_press=handle_key_press)
     listener.start()
 
     print(
         "Listening for the target image. "
-        f"Press {toggle_key_display} to toggle, Esc to quit."
+        f"Press {toggle_key_label} to toggle, Esc to quit."
     )
 
     try:
