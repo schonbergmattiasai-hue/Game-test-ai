@@ -87,7 +87,10 @@ def locate_target(
     except Exception as exc:
         message = str(exc).lower()
         if "opencv" in message and "confidence" in message:
-            print("OpenCV is required for confidence matching. Install opencv-python.")
+            print(
+                "OpenCV is required for confidence matching. "
+                "Install with: python3 -m pip install opencv-python"
+            )
             sys.exit(1)
         raise
 
@@ -121,8 +124,6 @@ def main() -> int:
                 else:
                     enabled_event.set()
                     print("Clicking enabled.")
-        return None
-
     listener = keyboard.Listener(on_press=on_press)
     listener.start()
 
