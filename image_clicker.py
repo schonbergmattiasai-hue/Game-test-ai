@@ -7,6 +7,7 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 DEFAULT_TARGET_IMAGE_URL = (
     "https://github.com/user-attachments/assets/1f1d29f8-deb0-488c-9d17-2446d4c40e17"
@@ -91,7 +92,7 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
 
 
 def locate_target(
-    pyautogui, image_path: Path, confidence: float
+    pyautogui: Any, image_path: Path, confidence: float
 ) -> tuple[int, int, int, int] | None:
     try:
         return pyautogui.locateOnScreen(

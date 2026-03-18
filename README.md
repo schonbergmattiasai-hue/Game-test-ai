@@ -28,7 +28,7 @@ Grant the terminal (or your Python launcher) these permissions in **System Setti
 python3 image_clicker.py
 ```
 
-By default the script uses `assets/target.png`, which should be the blue bullseye/target icon from the provided screenshot.
+By default the script uses `assets/target.png`, which should be the blue bullseye/target icon from the [provided screenshot](https://github.com/user-attachments/assets/1f1d29f8-deb0-488c-9d17-2446d4c40e17).
 If the file is missing, the script will attempt to download the image automatically from the shared URL.
 If the download fails, save the screenshot locally and pass the path:
 
