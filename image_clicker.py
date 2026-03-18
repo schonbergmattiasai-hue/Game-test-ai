@@ -127,7 +127,7 @@ def main() -> int:
     toggle_key = args.toggle_key.lower()
     toggle_key_label = toggle_key.upper()
 
-    def on_key_press(key):
+    def on_press(key):
         if key == keyboard.Key.esc:
             running_event.clear()
             return False
@@ -140,7 +140,7 @@ def main() -> int:
                     enabled_event.set()
                     print("Clicking enabled.")
 
-    listener = keyboard.Listener(on_press=on_key_press)
+    listener = keyboard.Listener(on_press=on_press)
     listener.start()
 
     print(
