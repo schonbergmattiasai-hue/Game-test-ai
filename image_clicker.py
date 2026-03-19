@@ -127,7 +127,8 @@ def locate_target(
             grayscale=True,
         )
     except Exception as exc:
-        if exc.__class__.__name__ == "ImageNotFoundException":
+        image_not_found_exc = getattr(pyautogui, "ImageNotFoundException", None)
+        if image_not_found_exc and isinstance(exc, image_not_found_exc):
             return None
         message = str(exc).lower()
         if "opencv" in message and "confidence" in message:
