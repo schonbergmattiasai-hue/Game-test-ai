@@ -207,7 +207,12 @@ def main() -> int:
         if hint:
             print(hint, file=sys.stderr)
             return 1
-        print(f"Unexpected error: {exc}", file=sys.stderr)
+        message = str(exc).strip()
+        if message:
+            details = f"{exc.__class__.__name__}: {message}"
+        else:
+            details = f"{exc.__class__.__name__} (no error message provided)"
+        print(f"Unexpected error: {details}", file=sys.stderr)
         return 1
     finally:
         listener.stop()
