@@ -15,6 +15,8 @@ DEFAULT_TARGET_IMAGE_URL = (
 )
 DEFAULT_IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "target.png"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+SCALE_MATCH_REL_TOL = 0.02
+SCALE_IDENTITY_REL_TOL = 0.01
 
 
 def parse_args() -> argparse.Namespace:
@@ -145,6 +147,12 @@ def locate_target(
 
 
 def get_screen_scale(pyautogui: Any) -> tuple[float, float]:
+    """Return scaling to convert screenshot coordinates to screen coordinates.
+
+    Scaling is applied only when the screenshot dimensions are uniformly scaled
+    relative to the screen size within SCALE_MATCH_REL_TOL and differ from 1 by
+    SCALE_IDENTITY_REL_TOL.
+    """
     try:
         screen_width, screen_height = pyautogui.size()
         screenshot = pyautogui.screenshot()
@@ -162,9 +170,9 @@ def get_screen_scale(pyautogui: Any) -> tuple[float, float]:
 
     width_ratio = screenshot_width / screen_width
     height_ratio = screenshot_height / screen_height
-    if math.isclose(width_ratio, height_ratio, rel_tol=0.02) and not math.isclose(
-        width_ratio, 1.0, rel_tol=0.01
-    ):
+    if math.isclose(
+        width_ratio, height_ratio, rel_tol=SCALE_MATCH_REL_TOL
+    ) and not math.isclose(width_ratio, 1.0, rel_tol=SCALE_IDENTITY_REL_TOL):
         return (1 / width_ratio, 1 / height_ratio)
 
     return (1.0, 1.0)
