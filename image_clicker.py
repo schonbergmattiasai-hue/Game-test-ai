@@ -207,7 +207,8 @@ def main() -> int:
         if hint:
             print(hint, file=sys.stderr)
             return 1
-        raise
+        print(f"Unexpected error: {exc}", file=sys.stderr)
+        return 1
     finally:
         listener.stop()
 
