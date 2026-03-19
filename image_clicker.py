@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 import threading
 import time
@@ -143,6 +144,32 @@ def locate_target(
         raise
 
 
+def get_screen_scale(pyautogui: Any) -> tuple[float, float]:
+    try:
+        screen_width, screen_height = pyautogui.size()
+        screenshot = pyautogui.screenshot()
+        screenshot_width, screenshot_height = screenshot.size
+    except Exception:
+        return (1.0, 1.0)
+
+    if (
+        screen_width <= 0
+        or screen_height <= 0
+        or screenshot_width <= 0
+        or screenshot_height <= 0
+    ):
+        return (1.0, 1.0)
+
+    width_ratio = screenshot_width / screen_width
+    height_ratio = screenshot_height / screen_height
+    if math.isclose(width_ratio, height_ratio, rel_tol=0.02) and not math.isclose(
+        width_ratio, 1.0, rel_tol=0.01
+    ):
+        return (1 / width_ratio, 1 / height_ratio)
+
+    return (1.0, 1.0)
+
+
 def main() -> int:
     args = parse_args()
     image_path = ensure_image(args.image, not args.no_download)
@@ -151,6 +178,7 @@ def main() -> int:
     from pynput import keyboard
 
     pyautogui.FAILSAFE = True
+    screen_scale = get_screen_scale(pyautogui)
 
     enabled_event = threading.Event()
     enabled_event.set()
@@ -187,7 +215,9 @@ def main() -> int:
                 region = locate_target(pyautogui, image_path, args.confidence)
                 if region:
                     center = pyautogui.center(region)
-                    pyautogui.click(center)
+                    click_x = round(center[0] * screen_scale[0])
+                    click_y = round(center[1] * screen_scale[1])
+                    pyautogui.click(click_x, click_y)
                     time.sleep(args.click_interval)
                 else:
                     time.sleep(args.scan_interval)
