@@ -8,7 +8,8 @@ This project provides a small Python helper that watches your screen for the tar
 
 - macOS
 - Python 3.10+
-
+- Pillow
+  
 Install dependencies:
 
 ```bash
@@ -45,3 +46,4 @@ python3 image_clicker.py --image /path/to/target.png
 ### Notes
 
 - If the target is not detected, try lowering `--confidence` (for example `0.85`) or provide a fresh screenshot taken at the same scale as your display.
+- If the code fails to run try doing "pip3 install pillow"
