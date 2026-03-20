@@ -183,8 +183,9 @@ def get_screen_scale(
     relative to the screen size within SCALE_MATCH_REL_TOL and differ from 1 by
     SCALE_IDENTITY_REL_TOL.
 
-    Returns (scale, screenshot_size), where scale is (x, y) and screenshot_size
-    is (width, height) or None if the screenshot could not be captured.
+    Returns:
+        tuple[float, float]: (x, y) scale to convert screenshot to screen coords.
+        tuple[int, int] | None: Screenshot size (width, height) or None if unknown.
     """
     try:
         screen_width, screen_height = pyautogui.size()
