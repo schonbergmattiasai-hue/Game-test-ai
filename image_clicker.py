@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
         "--scan-interval",
         type=float,
         default=0.2,
-        help="Seconds to wait between scans when no match is found.",
+        help="Minimum seconds between scans when no match is found.",
     )
     parser.add_argument(
         "--click-interval",
@@ -301,6 +301,7 @@ def main() -> int:
     try:
         while running_event.is_set():
             if enabled_event.is_set():
+                scan_started = time.monotonic()
                 search_region = None
                 if last_match_region:
                     search_region = expand_region(
@@ -322,7 +323,9 @@ def main() -> int:
                         region_misses += 1
                         if region_misses >= MAX_REGION_MISSES:
                             last_match_region = None
-                    time.sleep(args.scan_interval)
+                    sleep_for = args.scan_interval - (time.monotonic() - scan_started)
+                    if sleep_for > 0:
+                        time.sleep(sleep_for)
             else:
                 time.sleep(0.1)
     except KeyboardInterrupt:
