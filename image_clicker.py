@@ -196,6 +196,8 @@ def expand_region(
     new_top = max(top - padding, 0)
     new_right = min(left + width + padding, max_width)
     new_bottom = min(top + height + padding, max_height)
+    if new_right <= new_left or new_bottom <= new_top:
+        return region
     return (
         new_left,
         new_top,
@@ -235,7 +237,7 @@ def main() -> int:
     screenshot_bounds = (screenshot_width, screenshot_height)
     target_image = load_target_image(image_path)
     if hasattr(target_image, "size"):
-        region_padding = max(target_image.size)
+        region_padding = max(DEFAULT_REGION_PADDING, min(target_image.size) // 2)
     else:
         region_padding = DEFAULT_REGION_PADDING
 
@@ -287,6 +289,8 @@ def main() -> int:
                     if miss_count >= FULL_SCAN_MISS_LIMIT:
                         region = locate_target(pyautogui, target_image, args.confidence)
                         miss_count = 0
+                        if not region:
+                            search_region = None
                 if region:
                     center = pyautogui.center(region)
                     click_x = round(center[0] * screen_scale[0])
