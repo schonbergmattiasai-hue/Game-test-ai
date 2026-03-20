@@ -8,7 +8,10 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 DEFAULT_TARGET_IMAGE_URL = (
     "https://github.com/user-attachments/assets/1f1d29f8-deb0-488c-9d17-2446d4c40e17"
@@ -17,6 +20,9 @@ DEFAULT_IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "target.png"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 SCALE_MATCH_REL_TOL = 0.02
 SCALE_IDENTITY_REL_TOL = 0.01
+MAX_REGION_MISSES = 3
+MIN_SEARCH_PADDING = 100
+SEARCH_PADDING_MULTIPLIER = 2
 
 
 def parse_args() -> argparse.Namespace:
@@ -120,14 +126,36 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
     sys.exit(1)
 
 
+def load_target_image(path: Path) -> Image.Image:
+    """Load the target image into memory for reuse during matching.
+
+    Returns:
+        PIL.Image.Image: A copy of the loaded target image.
+
+    Exits with a message if loading fails.
+    """
+    from PIL import Image
+
+    try:
+        with Image.open(path) as image:
+            return image.copy()
+    except OSError as exc:
+        print(f"Failed to load target image at {path}: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
 def locate_target(
-    pyautogui: Any, image_path: Path, confidence: float
+    pyautogui: Any,
+    image: Any,
+    confidence: float,
+    region: tuple[int, int, int, int] | None = None,
 ) -> tuple[int, int, int, int] | None:
     try:
         return pyautogui.locateOnScreen(
-            str(image_path),
+            image,
             confidence=confidence,
             grayscale=True,
+            region=region,
         )
     except pyautogui.ImageNotFoundException:
         return None
@@ -146,19 +174,25 @@ def locate_target(
         raise
 
 
-def get_screen_scale(pyautogui: Any) -> tuple[float, float]:
+def get_screen_scale(
+    pyautogui: Any,
+) -> tuple[tuple[float, float], tuple[int, int] | None]:
     """Return scaling to convert screenshot coordinates to screen coordinates.
 
     Scaling is applied only when the screenshot dimensions are uniformly scaled
     relative to the screen size within SCALE_MATCH_REL_TOL and differ from 1 by
     SCALE_IDENTITY_REL_TOL.
+
+    Returns:
+        tuple[tuple[float, float], tuple[int, int] | None]: (scale, screenshot_size)
+        where scale is (x, y) and screenshot_size is (width, height) or None.
     """
     try:
         screen_width, screen_height = pyautogui.size()
         screenshot = pyautogui.screenshot()
         screenshot_width, screenshot_height = screenshot.size
     except Exception:
-        return (1.0, 1.0)
+        return (1.0, 1.0), None
 
     if (
         screen_width <= 0
@@ -166,16 +200,54 @@ def get_screen_scale(pyautogui: Any) -> tuple[float, float]:
         or screenshot_width <= 0
         or screenshot_height <= 0
     ):
-        return (1.0, 1.0)
+        return (1.0, 1.0), None
 
     width_ratio = screenshot_width / screen_width
     height_ratio = screenshot_height / screen_height
     if math.isclose(
         width_ratio, height_ratio, rel_tol=SCALE_MATCH_REL_TOL
     ) and not math.isclose(width_ratio, 1.0, rel_tol=SCALE_IDENTITY_REL_TOL):
-        return (1 / width_ratio, 1 / height_ratio)
+        return (1 / width_ratio, 1 / height_ratio), (screenshot_width, screenshot_height)
 
-    return (1.0, 1.0)
+    return (1.0, 1.0), (screenshot_width, screenshot_height)
+
+
+def expand_region(
+    region: tuple[int, int, int, int],
+    padding: int,
+    screenshot_size: tuple[int, int] | None,
+) -> tuple[int, int, int, int] | None:
+    """Expand a (left, top, width, height) region by padding.
+
+    Args:
+        region: The (left, top, width, height) region to expand.
+        padding: Pixels to expand on each side.
+        screenshot_size: Optional (width, height) bounds for clamping.
+
+    If screenshot_size is None, no upper bounds clamping is applied.
+
+    Returns the padded region or None if the input/padded size is invalid.
+    """
+    left, top, width, height = region
+    if width <= 0 or height <= 0:
+        return None
+    padded_left = max(left - padding, 0)
+    padded_top = max(top - padding, 0)
+    padded_right = left + width + padding
+    padded_bottom = top + height + padding
+    if screenshot_size:
+        padded_right = min(padded_right, screenshot_size[0])
+        padded_bottom = min(padded_bottom, screenshot_size[1])
+    padded_width = padded_right - padded_left
+    padded_height = padded_bottom - padded_top
+    if padded_width <= 0 or padded_height <= 0:
+        return None
+    return (
+        padded_left,
+        padded_top,
+        padded_width,
+        padded_height,
+    )
 
 
 def main() -> int:
@@ -186,7 +258,13 @@ def main() -> int:
     from pynput import keyboard
 
     pyautogui.FAILSAFE = True
-    screen_scale = get_screen_scale(pyautogui)
+    screen_scale, screenshot_size = get_screen_scale(pyautogui)
+    target_image = load_target_image(image_path)
+    target_width, target_height = target_image.size
+    search_padding = max(
+        MIN_SEARCH_PADDING,
+        int(max(target_width, target_height) * SEARCH_PADDING_MULTIPLIER),
+    )
 
     enabled_event = threading.Event()
     enabled_event.set()
@@ -217,17 +295,33 @@ def main() -> int:
         f"Press {toggle_key_label} to toggle, Esc to quit."
     )
 
+    last_match_region: tuple[int, int, int, int] | None = None
+    region_misses = 0
+
     try:
         while running_event.is_set():
             if enabled_event.is_set():
-                region = locate_target(pyautogui, image_path, args.confidence)
+                search_region = None
+                if last_match_region:
+                    search_region = expand_region(
+                        last_match_region, search_padding, screenshot_size
+                    )
+                region = locate_target(
+                    pyautogui, target_image, args.confidence, region=search_region
+                )
                 if region:
                     center = pyautogui.center(region)
                     click_x = round(center[0] * screen_scale[0])
                     click_y = round(center[1] * screen_scale[1])
                     pyautogui.click(click_x, click_y)
                     time.sleep(args.click_interval)
+                    last_match_region = region
+                    region_misses = 0
                 else:
+                    if last_match_region:
+                        region_misses += 1
+                        if region_misses >= MAX_REGION_MISSES:
+                            last_match_region = None
                     time.sleep(args.scan_interval)
             else:
                 time.sleep(0.1)
