@@ -46,4 +46,5 @@ python3 image_clicker.py --image /path/to/target.png
 ### Notes
 
 - If the target is not detected, try lowering `--confidence` (for example `0.85`) or provide a fresh screenshot taken at the same scale as your display.
+- On high-DPI displays, click coordinates are automatically scaled to match the screen.
 - If the code fails to run try doing "pip3 install pillow"

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 import threading
 import time
@@ -14,6 +15,8 @@ DEFAULT_TARGET_IMAGE_URL = (
 )
 DEFAULT_IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "target.png"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+SCALE_MATCH_REL_TOL = 0.02
+SCALE_IDENTITY_REL_TOL = 0.01
 
 
 def parse_args() -> argparse.Namespace:
@@ -143,6 +146,38 @@ def locate_target(
         raise
 
 
+def get_screen_scale(pyautogui: Any) -> tuple[float, float]:
+    """Return scaling to convert screenshot coordinates to screen coordinates.
+
+    Scaling is applied only when the screenshot dimensions are uniformly scaled
+    relative to the screen size within SCALE_MATCH_REL_TOL and differ from 1 by
+    SCALE_IDENTITY_REL_TOL.
+    """
+    try:
+        screen_width, screen_height = pyautogui.size()
+        screenshot = pyautogui.screenshot()
+        screenshot_width, screenshot_height = screenshot.size
+    except Exception:
+        return (1.0, 1.0)
+
+    if (
+        screen_width <= 0
+        or screen_height <= 0
+        or screenshot_width <= 0
+        or screenshot_height <= 0
+    ):
+        return (1.0, 1.0)
+
+    width_ratio = screenshot_width / screen_width
+    height_ratio = screenshot_height / screen_height
+    if math.isclose(
+        width_ratio, height_ratio, rel_tol=SCALE_MATCH_REL_TOL
+    ) and not math.isclose(width_ratio, 1.0, rel_tol=SCALE_IDENTITY_REL_TOL):
+        return (1 / width_ratio, 1 / height_ratio)
+
+    return (1.0, 1.0)
+
+
 def main() -> int:
     args = parse_args()
     image_path = ensure_image(args.image, not args.no_download)
@@ -151,6 +186,7 @@ def main() -> int:
     from pynput import keyboard
 
     pyautogui.FAILSAFE = True
+    screen_scale = get_screen_scale(pyautogui)
 
     enabled_event = threading.Event()
     enabled_event.set()
@@ -187,7 +223,9 @@ def main() -> int:
                 region = locate_target(pyautogui, image_path, args.confidence)
                 if region:
                     center = pyautogui.center(region)
-                    pyautogui.click(center)
+                    click_x = round(center[0] * screen_scale[0])
+                    click_y = round(center[1] * screen_scale[1])
+                    pyautogui.click(click_x, click_y)
                     time.sleep(args.click_interval)
                 else:
                     time.sleep(args.scan_interval)
