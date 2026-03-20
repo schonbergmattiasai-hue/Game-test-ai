@@ -17,7 +17,9 @@ DEFAULT_IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "target.png"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 SCALE_MATCH_REL_TOL = 0.02
 SCALE_IDENTITY_REL_TOL = 0.01
-REGION_MISS_LIMIT = 3
+MAX_REGION_MISSES = 3
+MIN_SEARCH_PADDING = 100
+SEARCH_PADDING_MULTIPLIER = 2
 
 
 def parse_args() -> argparse.Namespace:
@@ -166,6 +168,9 @@ def get_screen_scale(
     Scaling is applied only when the screenshot dimensions are uniformly scaled
     relative to the screen size within SCALE_MATCH_REL_TOL and differ from 1 by
     SCALE_IDENTITY_REL_TOL.
+
+    Returns (scale, screenshot_size), where screenshot_size is (width, height) or
+    None if the screenshot could not be captured.
     """
     try:
         screen_width, screen_height = pyautogui.size()
@@ -197,6 +202,7 @@ def expand_region(
     padding: int,
     bounds: tuple[int, int] | None,
 ) -> tuple[int, int, int, int] | None:
+    """Expand a locateOnScreen region by padding, clamped to bounds if provided."""
     left, top, width, height = region
     if width <= 0 or height <= 0:
         return None
@@ -230,7 +236,9 @@ def main() -> int:
     screen_scale, screenshot_size = get_screen_scale(pyautogui)
     target_image = load_target_image(image_path)
     target_width, target_height = target_image.size
-    search_padding = max(100, int(max(target_width, target_height) * 2))
+    search_padding = max(
+        MIN_SEARCH_PADDING, int(max(target_width, target_height) * SEARCH_PADDING_MULTIPLIER)
+    )
 
     enabled_event = threading.Event()
     enabled_event.set()
@@ -268,7 +276,7 @@ def main() -> int:
         while running_event.is_set():
             if enabled_event.is_set():
                 search_region = None
-                if last_region and region_misses < REGION_MISS_LIMIT:
+                if last_region and region_misses < MAX_REGION_MISSES:
                     search_region = expand_region(
                         last_region, search_padding, screenshot_size
                     )
@@ -286,7 +294,7 @@ def main() -> int:
                 else:
                     if last_region:
                         region_misses += 1
-                        if region_misses >= REGION_MISS_LIMIT:
+                        if region_misses >= MAX_REGION_MISSES:
                             last_region = None
                     time.sleep(args.scan_interval)
             else:
