@@ -124,7 +124,10 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
 
 
 def load_target_image(path: Path) -> Any:
-    """Load the target image into memory for reuse during matching."""
+    """Load the target image into memory for reuse during matching.
+
+    Returns a PIL Image instance and exits with a message if loading fails.
+    """
     from PIL import Image
 
     try:
@@ -207,7 +210,10 @@ def expand_region(
     padding: int,
     screenshot_size: tuple[int, int] | None,
 ) -> tuple[int, int, int, int] | None:
-    """Expand a locateOnScreen region by padding, clamped to bounds if provided."""
+    """Expand a (left, top, width, height) region by padding.
+
+    Returns the padded region or None if the input/padded size is invalid.
+    """
     left, top, width, height = region
     if width <= 0 or height <= 0:
         return None
