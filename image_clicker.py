@@ -185,6 +185,20 @@ def get_screen_scale(pyautogui: Any) -> tuple[float, float]:
     return (1.0, 1.0)
 
 
+def get_screenshot_bounds(pyautogui: Any) -> tuple[int, int]:
+    try:
+        screenshot = pyautogui.screenshot()
+        screenshot_width, screenshot_height = screenshot.size
+        if screenshot_width > 0 and screenshot_height > 0:
+            return (screenshot_width, screenshot_height)
+    except Exception:
+        pass
+    try:
+        return pyautogui.size()
+    except Exception:
+        return (0, 0)
+
+
 def expand_region(
     region: tuple[int, int, int, int],
     padding: int,
@@ -227,17 +241,11 @@ def main() -> int:
 
     pyautogui.FAILSAFE = True
     screen_scale = get_screen_scale(pyautogui)
-    screen_width, screen_height = pyautogui.size()
-    if screen_scale[0] > 0 and screen_scale[1] > 0:
-        screenshot_width = round(screen_width / screen_scale[0])
-        screenshot_height = round(screen_height / screen_scale[1])
-    else:
-        screenshot_width = screen_width
-        screenshot_height = screen_height
-    screenshot_bounds = (screenshot_width, screenshot_height)
+    screenshot_bounds = get_screenshot_bounds(pyautogui)
     target_image = load_target_image(image_path)
     if hasattr(target_image, "size"):
-        region_padding = max(DEFAULT_REGION_PADDING, min(target_image.size) // 2)
+        min_size = min(target_image.size)
+        region_padding = max(DEFAULT_REGION_PADDING, min_size // 2)
     else:
         region_padding = DEFAULT_REGION_PADDING
 
@@ -288,9 +296,11 @@ def main() -> int:
                     miss_count += 1
                     if miss_count >= FULL_SCAN_MISS_LIMIT:
                         region = locate_target(pyautogui, target_image, args.confidence)
-                        miss_count = 0
-                        if not region:
+                        if region:
+                            miss_count = 0
+                        else:
                             search_region = None
+                            miss_count = 0
                 if region:
                     center = pyautogui.center(region)
                     click_x = round(center[0] * screen_scale[0])
