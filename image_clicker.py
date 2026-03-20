@@ -8,7 +8,10 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 DEFAULT_TARGET_IMAGE_URL = (
     "https://github.com/user-attachments/assets/1f1d29f8-deb0-488c-9d17-2446d4c40e17"
@@ -123,7 +126,7 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
     sys.exit(1)
 
 
-def load_target_image(path: Path) -> Any:
+def load_target_image(path: Path) -> Image.Image:
     """Load the target image into memory for reuse during matching.
 
     Returns:
@@ -220,6 +223,8 @@ def expand_region(
         padding: Pixels to expand on each side.
         screenshot_size: Optional (width, height) bounds for clamping.
 
+    If screenshot_size is None, no upper bounds clamping is applied.
+
     Returns the padded region or None if the input/padded size is invalid.
     """
     left, top, width, height = region
@@ -237,10 +242,10 @@ def expand_region(
     if padded_width <= 0 or padded_height <= 0:
         return None
     return (
-        int(padded_left),
-        int(padded_top),
-        int(padded_width),
-        int(padded_height),
+        padded_left,
+        padded_top,
+        padded_width,
+        padded_height,
     )
 
 
