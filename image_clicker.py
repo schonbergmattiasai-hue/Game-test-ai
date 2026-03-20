@@ -19,7 +19,7 @@ SCALE_MATCH_REL_TOL = 0.02
 SCALE_IDENTITY_REL_TOL = 0.01
 MAX_REGION_MISSES = 3
 MIN_SEARCH_PADDING = 100
-SEARCH_PADDING_DIMENSION_MULTIPLIER = 2
+SEARCH_PADDING_MULTIPLIER = 2
 
 
 def parse_args() -> argparse.Namespace:
@@ -185,7 +185,7 @@ def get_screen_scale(
         or screenshot_width <= 0
         or screenshot_height <= 0
     ):
-        return (1.0, 1.0), (screenshot_width, screenshot_height)
+        return (1.0, 1.0), None
 
     width_ratio = screenshot_width / screen_width
     height_ratio = screenshot_height / screen_height
@@ -238,7 +238,7 @@ def main() -> int:
     target_width, target_height = target_image.size
     search_padding = max(
         MIN_SEARCH_PADDING,
-        int(max(target_width, target_height) * SEARCH_PADDING_DIMENSION_MULTIPLIER),
+        int(max(target_width, target_height) * SEARCH_PADDING_MULTIPLIER),
     )
 
     enabled_event = threading.Event()
