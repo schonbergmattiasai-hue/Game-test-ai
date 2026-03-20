@@ -310,6 +310,7 @@ def main() -> int:
                 region = locate_target(
                     pyautogui, target_image, args.confidence, region=search_region
                 )
+                scan_duration = time.monotonic() - scan_started
                 if region:
                     center = pyautogui.center(region)
                     click_x = round(center[0] * screen_scale[0])
@@ -323,7 +324,7 @@ def main() -> int:
                         region_misses += 1
                         if region_misses >= MAX_REGION_MISSES:
                             last_match_region = None
-                    sleep_for = args.scan_interval - (time.monotonic() - scan_started)
+                    sleep_for = args.scan_interval - scan_duration
                     if sleep_for > 0:
                         time.sleep(sleep_for)
             else:
