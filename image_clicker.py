@@ -126,7 +126,10 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
 def load_target_image(path: Path) -> Any:
     """Load the target image into memory for reuse during matching.
 
-    Returns a PIL Image instance and exits with a message if loading fails.
+    Returns:
+        PIL.Image.Image: A copy of the loaded target image.
+
+    Exits with a message if loading fails.
     """
     from PIL import Image
 
@@ -177,8 +180,8 @@ def get_screen_scale(
     relative to the screen size within SCALE_MATCH_REL_TOL and differ from 1 by
     SCALE_IDENTITY_REL_TOL.
 
-    Returns (scale, screenshot_size), where screenshot_size is (width, height) or
-    None if the screenshot could not be captured.
+    Returns (scale, screenshot_size), where scale is (x, y) and screenshot_size
+    is (width, height) or None if the screenshot could not be captured.
     """
     try:
         screen_width, screen_height = pyautogui.size()
@@ -211,6 +214,11 @@ def expand_region(
     screenshot_size: tuple[int, int] | None,
 ) -> tuple[int, int, int, int] | None:
     """Expand a (left, top, width, height) region by padding.
+
+    Args:
+        region: The (left, top, width, height) region to expand.
+        padding: Pixels to expand on each side.
+        screenshot_size: Optional (width, height) bounds for clamping.
 
     Returns the padded region or None if the input/padded size is invalid.
     """
