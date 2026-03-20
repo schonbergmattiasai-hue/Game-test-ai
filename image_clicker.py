@@ -301,12 +301,12 @@ def main() -> int:
     try:
         while running_event.is_set():
             if enabled_event.is_set():
-                scan_started = time.monotonic()
                 search_region = None
                 if last_match_region:
                     search_region = expand_region(
                         last_match_region, search_padding, screenshot_size
                     )
+                scan_started = time.monotonic()
                 region = locate_target(
                     pyautogui, target_image, args.confidence, region=search_region
                 )
