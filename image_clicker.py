@@ -19,7 +19,7 @@ SCALE_MATCH_REL_TOL = 0.02
 SCALE_IDENTITY_REL_TOL = 0.01
 MAX_REGION_MISSES = 3
 MIN_SEARCH_PADDING = 100
-SEARCH_PADDING_MULTIPLIER = 2
+SEARCH_PADDING_DIMENSION_MULTIPLIER = 2
 
 
 def parse_args() -> argparse.Namespace:
@@ -237,7 +237,8 @@ def main() -> int:
     target_image = load_target_image(image_path)
     target_width, target_height = target_image.size
     search_padding = max(
-        MIN_SEARCH_PADDING, int(max(target_width, target_height) * SEARCH_PADDING_MULTIPLIER)
+        MIN_SEARCH_PADDING,
+        int(max(target_width, target_height) * SEARCH_PADDING_DIMENSION_MULTIPLIER),
     )
 
     enabled_event = threading.Event()
@@ -269,16 +270,16 @@ def main() -> int:
         f"Press {toggle_key_label} to toggle, Esc to quit."
     )
 
-    last_region: tuple[int, int, int, int] | None = None
+    last_match_region: tuple[int, int, int, int] | None = None
     region_misses = 0
 
     try:
         while running_event.is_set():
             if enabled_event.is_set():
                 search_region = None
-                if last_region and region_misses < MAX_REGION_MISSES:
+                if last_match_region and region_misses < MAX_REGION_MISSES:
                     search_region = expand_region(
-                        last_region, search_padding, screenshot_size
+                        last_match_region, search_padding, screenshot_size
                     )
                 region = locate_target(
                     pyautogui, target_image, args.confidence, region=search_region
@@ -289,13 +290,13 @@ def main() -> int:
                     click_y = round(center[1] * screen_scale[1])
                     pyautogui.click(click_x, click_y)
                     time.sleep(args.click_interval)
-                    last_region = region
+                    last_match_region = region
                     region_misses = 0
                 else:
-                    if last_region:
+                    if last_match_region:
                         region_misses += 1
                         if region_misses >= MAX_REGION_MISSES:
-                            last_region = None
+                            last_match_region = None
                     time.sleep(args.scan_interval)
             else:
                 time.sleep(0.1)
