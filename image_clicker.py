@@ -186,6 +186,7 @@ def get_screen_scale(pyautogui: Any) -> tuple[float, float]:
 
 
 def get_screenshot_bounds(pyautogui: Any) -> tuple[int, int]:
+    """Return screenshot dimensions, falling back to screen size or (0, 0)."""
     try:
         screenshot = pyautogui.screenshot()
         screenshot_width, screenshot_height = screenshot.size
@@ -204,6 +205,10 @@ def expand_region(
     padding: int,
     bounds: tuple[int, int],
 ) -> tuple[int, int, int, int]:
+    """Expand a (left, top, width, height) region within (max_width, max_height).
+
+    Returns the original region when the expansion would be invalid.
+    """
     left, top, width, height = region
     max_width, max_height = bounds
     new_left = max(left - padding, 0)
@@ -221,6 +226,7 @@ def expand_region(
 
 
 def load_target_image(image_path: Path) -> Any:
+    """Load the target image with Pillow, or fall back to the Path on failure."""
     try:
         from PIL import Image
     except ImportError:
@@ -296,11 +302,9 @@ def main() -> int:
                     miss_count += 1
                     if miss_count >= FULL_SCAN_MISS_LIMIT:
                         region = locate_target(pyautogui, target_image, args.confidence)
-                        if region:
-                            miss_count = 0
-                        else:
+                        if not region:
                             search_region = None
-                            miss_count = 0
+                        miss_count = 0
                 if region:
                     center = pyautogui.center(region)
                     click_x = round(center[0] * screen_scale[0])
