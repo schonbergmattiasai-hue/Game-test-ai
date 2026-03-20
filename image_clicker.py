@@ -124,10 +124,15 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
 
 
 def load_target_image(path: Path) -> Any:
+    """Load the target image into memory for reuse during matching."""
     from PIL import Image
 
-    with Image.open(path) as image:
-        return image.copy()
+    try:
+        with Image.open(path) as image:
+            return image.copy()
+    except OSError as exc:
+        print(f"Failed to load target image at {path}: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 def locate_target(
@@ -200,7 +205,7 @@ def get_screen_scale(
 def expand_region(
     region: tuple[int, int, int, int],
     padding: int,
-    bounds: tuple[int, int] | None,
+    screenshot_size: tuple[int, int] | None,
 ) -> tuple[int, int, int, int] | None:
     """Expand a locateOnScreen region by padding, clamped to bounds if provided."""
     left, top, width, height = region
@@ -210,9 +215,9 @@ def expand_region(
     padded_top = max(top - padding, 0)
     padded_right = left + width + padding
     padded_bottom = top + height + padding
-    if bounds:
-        padded_right = min(padded_right, bounds[0])
-        padded_bottom = min(padded_bottom, bounds[1])
+    if screenshot_size:
+        padded_right = min(padded_right, screenshot_size[0])
+        padded_bottom = min(padded_bottom, screenshot_size[1])
     padded_width = padded_right - padded_left
     padded_height = padded_bottom - padded_top
     if padded_width <= 0 or padded_height <= 0:
