@@ -184,8 +184,8 @@ def get_screen_scale(
     SCALE_IDENTITY_REL_TOL.
 
     Returns:
-        tuple[float, float]: (x, y) scale to convert screenshot to screen coords.
-        tuple[int, int] | None: Screenshot size (width, height) or None if unknown.
+        tuple[tuple[float, float], tuple[int, int] | None]: (scale, screenshot_size)
+        where scale is (x, y) and screenshot_size is (width, height) or None.
     """
     try:
         screen_width, screen_height = pyautogui.size()
@@ -302,7 +302,7 @@ def main() -> int:
         while running_event.is_set():
             if enabled_event.is_set():
                 search_region = None
-                if last_match_region and region_misses < MAX_REGION_MISSES:
+                if last_match_region:
                     search_region = expand_region(
                         last_match_region, search_padding, screenshot_size
                     )
