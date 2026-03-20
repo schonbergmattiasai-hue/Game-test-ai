@@ -17,6 +17,8 @@ DEFAULT_IMAGE_PATH = Path(__file__).resolve().parent / "assets" / "target.png"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 SCALE_MATCH_REL_TOL = 0.02
 SCALE_IDENTITY_REL_TOL = 0.01
+DEFAULT_REGION_PADDING = 120
+FULL_SCAN_MISS_LIMIT = 4
 
 
 def parse_args() -> argparse.Namespace:
@@ -121,14 +123,19 @@ def ensure_image(path: Path, allow_download: bool) -> Path:
 
 
 def locate_target(
-    pyautogui: Any, image_path: Path, confidence: float
+    pyautogui: Any,
+    image: Any,
+    confidence: float,
+    region: tuple[int, int, int, int] | None = None,
 ) -> tuple[int, int, int, int] | None:
     try:
-        return pyautogui.locateOnScreen(
-            str(image_path),
-            confidence=confidence,
-            grayscale=True,
-        )
+        kwargs: dict[str, Any] = {
+            "confidence": confidence,
+            "grayscale": True,
+        }
+        if region is not None:
+            kwargs["region"] = region
+        return pyautogui.locateOnScreen(image, **kwargs)
     except pyautogui.ImageNotFoundException:
         return None
     except Exception as exc:
@@ -178,6 +185,59 @@ def get_screen_scale(pyautogui: Any) -> tuple[float, float]:
     return (1.0, 1.0)
 
 
+def get_screenshot_bounds(pyautogui: Any) -> tuple[int, int]:
+    """Return screenshot dimensions, falling back to screen size or (0, 0)."""
+    try:
+        screenshot = pyautogui.screenshot()
+        screenshot_width, screenshot_height = screenshot.size
+        if screenshot_width > 0 and screenshot_height > 0:
+            return (screenshot_width, screenshot_height)
+    except Exception:
+        pass
+    try:
+        return pyautogui.size()
+    except Exception:
+        return (0, 0)
+
+
+def expand_region(
+    region: tuple[int, int, int, int],
+    padding: int,
+    bounds: tuple[int, int],
+) -> tuple[int, int, int, int]:
+    """Expand a (left, top, width, height) region within (max_width, max_height).
+
+    Returns the original region when the expansion would be invalid.
+    """
+    left, top, width, height = region
+    max_width, max_height = bounds
+    new_left = max(left - padding, 0)
+    new_top = max(top - padding, 0)
+    new_right = min(left + width + padding, max_width)
+    new_bottom = min(top + height + padding, max_height)
+    if new_right <= new_left or new_bottom <= new_top:
+        return region
+    return (
+        new_left,
+        new_top,
+        max(1, new_right - new_left),
+        max(1, new_bottom - new_top),
+    )
+
+
+def load_target_image(image_path: Path) -> Any:
+    """Load the target image with Pillow, or fall back to the Path on failure."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return image_path
+    try:
+        with Image.open(image_path) as image:
+            return image.copy()
+    except OSError:
+        return image_path
+
+
 def main() -> int:
     args = parse_args()
     image_path = ensure_image(args.image, not args.no_download)
@@ -187,16 +247,26 @@ def main() -> int:
 
     pyautogui.FAILSAFE = True
     screen_scale = get_screen_scale(pyautogui)
+    screenshot_bounds = get_screenshot_bounds(pyautogui)
+    target_image = load_target_image(image_path)
+    if hasattr(target_image, "size"):
+        min_size = min(target_image.size)
+        region_padding = max(DEFAULT_REGION_PADDING, min_size // 2)
+    else:
+        region_padding = DEFAULT_REGION_PADDING
 
     enabled_event = threading.Event()
     enabled_event.set()
     running_event = threading.Event()
     running_event.set()
+    search_region: tuple[int, int, int, int] | None = None
+    miss_count = 0
 
     toggle_key = args.toggle_key.lower()
     toggle_key_label = toggle_key.upper()
 
     def on_press(key: keyboard.Key | keyboard.KeyCode | None) -> bool | None:
+        nonlocal search_region, miss_count
         if key == keyboard.Key.esc:
             running_event.clear()
             return False
@@ -207,6 +277,8 @@ def main() -> int:
                     print(f"Clicking paused. Press {toggle_key_label} to resume.")
                 else:
                     enabled_event.set()
+                    search_region = None
+                    miss_count = 0
                     print("Clicking enabled.")
 
     listener = keyboard.Listener(on_press=on_press)
@@ -220,12 +292,30 @@ def main() -> int:
     try:
         while running_event.is_set():
             if enabled_event.is_set():
-                region = locate_target(pyautogui, image_path, args.confidence)
+                region = locate_target(
+                    pyautogui,
+                    target_image,
+                    args.confidence,
+                    search_region,
+                )
+                if not region and search_region is not None:
+                    miss_count += 1
+                    if miss_count >= FULL_SCAN_MISS_LIMIT:
+                        region = locate_target(pyautogui, target_image, args.confidence)
+                        if not region:
+                            search_region = None
+                        miss_count = 0
                 if region:
                     center = pyautogui.center(region)
                     click_x = round(center[0] * screen_scale[0])
                     click_y = round(center[1] * screen_scale[1])
                     pyautogui.click(click_x, click_y)
+                    search_region = expand_region(
+                        region,
+                        region_padding,
+                        screenshot_bounds,
+                    )
+                    miss_count = 0
                     time.sleep(args.click_interval)
                 else:
                     time.sleep(args.scan_interval)
